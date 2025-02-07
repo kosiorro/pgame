@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sejmowe Rozgrywki</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --success-color: #2ecc71;
+            --warning-color: #f1c40f;
+            --background-color: #ecf0f1;
+            --card-background: #ffffff;
+            --text-color: #2c3e50;
+            --border-radius: 12px;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 350px 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            background: var(--card-background);
+            border-radius: var(--border-radius);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            height: calc(100vh - 40px);
+            position: sticky;
+            top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+        
+        .player-info {
+            background: var(--card-background);
+            border-radius: var(--border-radius);
+            padding: 20px;
+        }
+        
+        .player-card {
+            background: #f8f9fa;
+            border-radius: var(--border-radius);
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            transition: all 0.3s ease;
+        }
+        
+        .player-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        
+        .player-card h4 {
+            font-size: 1.2em;
+            color: var(--primary-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .stats {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .stat-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            background: #ffffff;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .stat-icon {
+            font-size: 1.2em;
+        }
+        
+        .stat-value {
+            font-weight: 500;
+            color: var(--primary-color);
+        }
+        
+        /* Main Content */
+        .main-content {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .game-header {
+            background: var(--card-background);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            text-align: center;
+        }
+        
+        /* Board */
+        .board {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(4, 1fr);
+            gap: 15px;
+            padding: 20px;
+            background: var(--card-background);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            aspect-ratio: 5/4;
+        }
+        
+        .field {
+            background: rgb(236, 236, 236);
+            border-radius: var(--border-radius);
+            padding: 15px;
+            position: relative;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            min-height: 120px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .field:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .field-active {
+            border: 2px solid var(--success-color);
+            background: #f0fff4;
+        }
+        
+        .field-number {
+            background: var(--primary-color);
+            color: white;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8em;
+            font-weight: bold;
+            flex-shrink: 0;
+        }
+        
+        .field-title {
+            font-weight: 600;
+            font-size: 1.1em;
+            color: var(--primary-color);
+            margin-bottom: 8px;
+        }
+        
+        .field-description {
+            font-size: 0.9em;
+            color: var(--text-secondary);
+            flex-grow: 1;
+        }
+        
+        .players-on-field {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-top: 10px;
+        }
+        
+        .player-marker {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            color: white;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+        }
+        
+        /* Controls */
+        .controls {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            display: flex;
+            gap: 10px;
+        }
+        
+        .dice-button, .confrontation-button {
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: var(--border-radius);
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .dice-button {
+            background: linear-gradient(145deg, var(--success-color), #219a52);
+        }
+        
+        .confrontation-button {
+            background: linear-gradient(145deg, #e74c3c, #c0392b);
+        }
+        
+        .dice-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(39, 174, 96, 0.3);
+        }
+        
+        .confrontation-button:hover {
+            background: linear-gradient(145deg, #c0392b, #a93226);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+        }
+        
+        /* Items */
+        .player-items {
+            margin-top: 20px;
+        }
+        
+        .items-title {
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+        
+        .items-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 200px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        
+        .item-card {
+            background: #ffffff;
+            padding: 10px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        }
+        
+        .item-icon {
+            font-size: 1.2em;
+        }
+        
+        /* Shop Modal */
+        .shop-modal, .confrontation-modal {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--card-background);
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            max-width: 600px;
+            width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .shop-items {
+            display: grid;
+            gap: 15px;
+            margin: 20px 0;
+            max-height: 60vh;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        
+        .shop-item {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: var(--border-radius);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .shop-item:hover {
+            background: var(--secondary-color);
+            color: white;
+        }
+        
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* Notifications */
+        .notifications-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            z-index: 1000;
+        }
+        
+        .notification {
+            margin-bottom: 10px;
+            padding: 12px 20px;
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            max-width: 300px;
+            opacity: 0;
+            transform: translateX(50px);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+        }
+        
+        .notification.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .notification.success { background-color: var(--success-color); color: white; }
+        .notification.error { background-color: var(--accent-color); color: white; }
+        .notification.info { background-color: var(--secondary-color); color: white; }
+        .notification.warning { background-color: var(--warning-color); color: white; }
+        
+        /* Turn Indicator */
+        .turn-indicator, .current-turn-info {
+            background: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            border-radius: var(--border-radius);
+            margin-top: 10px;
+            text-align: center;
+            font-weight: 500;
+        }
+        
+        .current-turn-info {
+            background-color: var(--secondary-color);
+        }
+        
+        /* Buttons */
+        #start-game-btn, #confrontation-roll, #end-confrontation {
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+            width: 100%;
+        }
+        
+        #start-game-btn:disabled, #confrontation-roll:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        #start-game-btn:hover:not(:disabled), #confrontation-roll:hover:not(:disabled), #end-confrontation:hover {
+            background: #2980b9;
+            transform: translateY(-2px);
+        }
+        
+        .possible-move {
+            cursor: pointer;
+            box-shadow: 0 0 10px 3px rgba(52, 152, 219, 0.7);
+            transition: all 0.3s ease;
+        }
+        
+        .possible-move:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 15px 5px rgba(52, 152, 219, 0.9);
+        }
+        
+        .player-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 10px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        
+        /* Media Queries for Responsiveness */
+        @media (max-width: 1200px) {
+            body {
+                grid-template-columns: 1fr;
+            }
+        
+            .sidebar {
+                position: static;
+                height: auto;
+                margin-bottom: 20px;
+            }
+        
+            .board {
+                max-width: 100%;
+            }
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+        
+            .game-header h1 {
+                font-size: 1.5em;
+            }
+        
+            .board {
+                grid-template-columns: repeat(4, 1fr);
+                grid-template-rows: repeat(5, 1fr);
+                gap: 10px;
+                padding: 10px;
+            }
+        
+            .field {
+                min-height: 100px;
+                padding: 10px;
+            }
+        
+            .field-title {
+                font-size: 0.9em;
+            }
+        
+            .field-description {
+                font-size: 0.8em;
+            }
+        
+            .player-marker {
+                font-size: 0.7em;
+                padding: 3px 6px;
+            }
+        
+            .controls {
+                bottom: 10px;
+                right: 10px;
+            }
+        
+            .dice-button, .confrontation-button {
+                padding: 10px 20px;
+                font-size: 1em;
+            }
+        
+            .shop-modal, .confrontation-modal {
+                width: 95%;
+                padding: 20px;
+            }
+        
+            .notification {
+                max-width: 250px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .board {
+                grid-template-columns: repeat(3, 1fr);
+                grid-template-rows: repeat(6, 1fr);
+            }
+        
+            .field {
+                min-height: 80px;
+            }
+        
+            .player-card h4 {
+                font-size: 1em;
+            }
+        
+            .stat-item {
+                padding: 6px 10px;
+            }
+        
+            .stat-icon {
+                font-size: 1em;
+            }
+        
+            .dice-button, .confrontation-button {
+                padding: 8px 15px;
+                font-size: 0.9em;
+            }
+        
+            .controls {
+                flex-direction: column;
+                align-items: flex-end;
+            }
+        }
+
+        .field-action-button {
+            background: linear-gradient(145deg, var(--accent-color), #c0392b);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: var(--border-radius);
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-left: 10px;
+        }
+        
+        .field-action-button:hover {
+            background: linear-gradient(145deg, #c0392b, #a93226);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+        }
+
+        .end-turn-button {
+            background: linear-gradient(145deg, #e74c3c, #c0392b);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: var(--border-radius);
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-left: 10px;
+        }
+        
+        .end-turn-button:hover {
+            background: linear-gradient(145deg, #c0392b, #a93226);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(231, 76, 60, 0.3);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="player-info" id="player-info">
+            <!-- Będzie wypełnione przez JavaScript -->
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+
+        
+        <div id="notifications-container" class="notifications-container"></div>
+
+
+        <div class="game-header">
+            <h1>🏛️ Sejmowe Rozgrywki</h1>
+            <div id="turn-indicator" class="turn-indicator"></div>
+            <div id="current-turn-info" class="current-turn-info"></div>
+            <button id="start-game-btn" onclick="startGame()" style="display: none;">Rozpocznij grę</button>
+        </div>
+        <div class="board" id="board">
+            <!-- Będzie wypełnione przez JavaScript -->
+        </div>
+    </div>
+    
+
+    <!-- Controls -->
+    <div class="controls">
+        <button class="dice-button" onclick="rollDice()">
+            <span class="dice-icon">🎲</span>
+            <span>Rzuć kośćmi</span>
+            <small>Pozycja: <span id="current-position">0</span></small>
+        </button>
+    </div>
+
+</div>
+
+
+    <script>
+        const socket = io();  
+        let currentGameState = null;  
+        const gameCode = '{{ game_code }}';  
+        let isHost = false;  
+        let canPerformFieldAction = false;  
+        let currentPlayerPosition = 0;  
+        let possibleMoves = [];  
+        let confrontationPlayers = [];
+    
+        function updatePlayers(playersData = []) {
+            const infoDiv = document.getElementById('player-info');
+            if (!infoDiv) return;
+    
+            infoDiv.innerHTML = playersData.map(p => `
+                <div class="player-card ${p.id === socket.id ? 'you' : ''}">
+                    <h4>
+                        <img src="/static/images/av${p.avatar}.png" alt="${p.name}'s avatar" class="player-avatar">
+                        ${p.name} ${p.is_host ? '👑' : ''}
+                    </h4>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <span class="stat-icon">🎯</span>
+                            <span>Pozycja: </span>
+                            <span class="stat-value">${p.position + 1}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-icon">📈</span>
+                            <span>Popularność: </span>
+                            <span class="stat-value">${p.popularity}%</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-icon">⚡</span>
+                            <span>Wpływy: </span>
+                            <span class="stat-value">${p.influence}</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-icon">💼</span>
+                            <span>Budżet: </span>
+                            <span class="stat-value">${p.budget.toLocaleString()} zł</span>
+                        </div>
+                    </div>
+                    <div class="player-items">
+                        <h5 class="items-title">🎒 Ekwipunek</h5>
+                        <div class="items-list">
+                            ${p.items && p.items.length > 0 
+                                ? p.items.map(item => `
+                                    <div class="item-card">
+                                        <span class="item-icon">➖</span>
+                                        <span>${item}</span>
+                                    </div>
+                                `).join('')
+                                : '<div class="item-card empty">Brak przedmiotów</div>'
+                            }
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+    
+            const currentPlayer = playersData.find(p => p.id === socket.id);
+            if (currentPlayer) {
+                document.getElementById('current-position').textContent = currentPlayer.position + 1;
+            }
+        }
+    
+        function updateBoard(boardData = []) {
+            if (!boardData || !currentGameState) return;
+        
+            const boardDiv = document.getElementById('board');
+            boardDiv.innerHTML = '';
+        
+            const positions = [
+                { col: 1, row: 1 }, // Start (f1)
+                { col: 2, row: 1 }, // f2
+                { col: 3, row: 1 }, // f3
+                { col: 4, row: 1 }, // f4
+                { col: 5, row: 1 }, // f5
+                { col: 5, row: 2 }, // f6
+                { col: 5, row: 3 }, // f7
+                { col: 5, row: 4 }, // f8
+                { col: 4, row: 4 }, // f9
+                { col: 3, row: 4 }, // f10
+                { col: 2, row: 4 }, // f11
+                { col: 1, row: 4 }  // f12
+            ];
+        
+            boardData.forEach((field, index) => {
+                const fieldDiv = document.createElement('div');
+                fieldDiv.className = `field field-${field.type.toLowerCase()}`;
+        
+                const pos = positions[index];
+                fieldDiv.style.gridColumn = pos.col;
+                fieldDiv.style.gridRow = pos.row;
+        
+                if (canPerformFieldAction && index === currentPlayerPosition) {
+                    fieldDiv.classList.add('field-active');
+                }
+        
+                fieldDiv.onclick = () => {
+                    if (currentGameState?.status === 'in_progress') {
+                        if (possibleMoves.includes(index)) {
+                            movePlayer(index);
+                        } else if (canPerformFieldAction && index === currentPlayerPosition) {
+                            showFieldActions(field);
+                        }
+                    }
+                };
+        
+                const playersHere = currentGameState.players.filter(p => p.position === index);
+        
+                fieldDiv.innerHTML = `
+                    <div class="field-content">
+                        <div class="field-header">
+                            <div class="field-number">${index + 1}</div>
+                            <div class="field-title">${field.type}</div>
+                        </div>
+                        <div class="field-description">${field.description}</div>
+                    <div class="players-on-field">
+                        ${playersHere.map(p => `
+                            <div class="player-marker" style="background: ${getPlayerColor(p.id)}">
+                                <img src="/static/images/av${p.avatar}.png" alt="${p.name}'s avatar" class="player-avatar">
+                                ${p.name}
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+                `;
+        
+                boardDiv.appendChild(fieldDiv);
+            });
+        }
+
+        
+        socket.on('confrontation_available', data => {
+            showNotification(`Możliwa konfrontacja z graczami: ${data.players.join(', ')}`, 'info');
+            const confrontationBtn = document.createElement('button');
+            confrontationBtn.textContent = 'Konfrontacja';
+            confrontationBtn.className = 'confrontation-button';
+            confrontationBtn.onclick = () => {
+                socket.emit('player_action', { type: 'start_confrontation' });
+                confrontationBtn.remove();
+            };
+            document.querySelector('.controls').appendChild(confrontationBtn);
+        });
+
+socket.on('start_confrontation', data => {
+    confrontationPlayers = data.players;
+    showConfrontationModal();
+});
+
+socket.on('confrontation_roll_result', data => {
+    updateConfrontationModal(data);
+});
+
+socket.on('confrontation_result', data => {
+    showNotification(`Konfrontacja zakończona. Zwycięzca: ${data.winner}`, 'success');
+    closeConfrontationModal();
+});
+
+function showConfrontationModal() {
+    const modalHtml = `
+        <div class="modal-overlay">
+            <div class="confrontation-modal">
+                <h2>Konfrontacja</h2>
+                <div id="confrontation-players"></div>
+                <button id="confrontation-roll" onclick="confrontationRoll()">Rzuć kością</button>
+                <button id="end-confrontation" style="display:none;" onclick="endConfrontation()">Zakończ konfrontację</button>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+function showFieldActions(field) {
+    console.log("Pokazywanie akcji dla pola:", field);
+
+    if (!field) {
+        console.error("Pole jest niezdefiniowane!");
+        return;
+    }
+
+    if (field.type === "Kantyna") {
+        console.log("Wejście na pole Kantyna - wysyłanie żądania o listę przedmiotów");
+        socket.emit('get_items');
+        return;
+    }
+
+    if (!field.actions || !Array.isArray(field.actions)) {
+        console.error("Brak akcji dla pola lub akcje nie są tablicą!");
+        return;
+    }
+
+    const modalHtml = `
+        <div class="modal-overlay">
+            <div class="shop-modal">
+                <h3>${field.type || 'Nieznane pole'}</h3>
+                <div class="shop-items">
+                    ${field.actions.map(action => `
+                        <div class="shop-item" onclick="performFieldAction('${action.effect_type}')">
+                            <div class="item-info">
+                                <div class="item-name">${action.name}</div>
+                                <small class="item-effects">${action.description}</small>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                <button onclick="closeModal()" class="close-modal-button">Zamknij</button>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+socket.on('field_actions', data => {
+    console.log("Otrzymano akcje pola:", data);
+    if (data && data.actions) {
+        showFieldActions({type: data.fieldType, actions: data.actions});
+    } else {
+        console.error("Nieprawidłowe dane akcji pola:", data);
+    }
+});
+socket.on('turn_ended', data => {
+    canPerformAction = false;
+    hideEndTurnButton();
+    updateTurnIndicator(data.next_player);
+    if (data.next_player === socket.id) {
+        showNotification('Twoja tura!', 'info');
+    } else {
+        const nextPlayer = currentGameState.players.find(p => p.id === data.next_player);
+        showNotification(`Tura gracza: ${nextPlayer ? nextPlayer.name : 'Nieznany'}`, 'info');
+    }
+});
+
+
+
+function performFieldAction(actionType) {
+    console.log("Wykonywanie akcji pola:", actionType);
+    socket.emit('player_action', { 
+        type: 'field_action', 
+        action_type: actionType 
+    });
+    closeModal();
+}
+
+
+
+function hideEndTurnButton() {
+    const endTurnButton = document.querySelector('.end-turn-button');
+    if (endTurnButton) {
+        endTurnButton.remove();
+    }
+}
+
+
+function updateConfrontationModal(data) {
+    const playerDiv = document.createElement('div');
+    playerDiv.innerHTML = `
+        <p>${data.player_name}: Rzut: ${data.roll}, Popularność: ${data.popularity}, Wpływy: ${data.influence}</p>
+    `;
+    document.getElementById('confrontation-players').appendChild(playerDiv);
+
+    if (document.getElementById('confrontation-players').children.length === confrontationPlayers.length) {
+        document.getElementById('confrontation-roll').style.display = 'none';
+        document.getElementById('end-confrontation').style.display = 'block';
+    }
+}
+
+function confrontationRoll() {
+    socket.emit('confrontation_roll');  // Usunęliśmy pusty obiekt {}
+    document.getElementById('confrontation-roll').disabled = true;
+}
+
+function endConfrontation() {
+    const players = document.getElementById('confrontation-players').children;
+    let winner = null;
+    let loser = null;
+    let maxScore = -1;
+    let minScore = Infinity;
+
+    for (let i = 0; i < players.length; i++) {
+        const playerData = players[i].textContent.match(/(\w+): Rzut: (\d+), Popularność: (\d+), Wpływy: (\d+)/);
+        const score = parseInt(playerData[2]) + parseInt(playerData[3]) + parseInt(playerData[4]);
+        if (score > maxScore) {
+            maxScore = score;
+            winner = confrontationPlayers[i].id;
+        }
+        if (score < minScore) {
+            minScore = score;
+            loser = confrontationPlayers[i].id;
+        }
+    }
+
+    socket.emit('end_confrontation', { winner_id: winner, loser_id: loser });
+}
+
+socket.on('confrontation_result', data => {
+    showNotification(`Konfrontacja zakończona. Zwycięzca: ${data.winner}`, 'success');
+    closeConfrontationModal();
+    // Odśwież stan gry, aby odzwierciedlić zmiany po konfrontacji
+    socket.emit('get_game_state');
+});
+
+function closeConfrontationModal() {
+    const modal = document.querySelector('.modal-overlay');
+    if (modal) modal.remove();
+}
+
+function showShopItems(items) {
+    const modalHtml = `
+        <div class="modal-overlay">
+            <div class="shop-modal">
+                <h3>Kantyna - Dostępne przedmioty</h3>
+                <div class="shop-items">
+                    ${Object.entries(items).map(([item, details]) => `
+                        <div class="shop-item" onclick="buyItem('${item}')">
+                            <div class="item-info">
+                                <div class="item-name">${item}</div>
+                                <small class="item-effects">${details.effects.description}</small>
+                            </div>
+                            <div class="item-price">${details.price.toLocaleString()} zł</div>
+                        </div>
+                    `).join('')}
+                </div>
+                <button onclick="closeModal()" class="close-modal-button">Zamknij sklep</button>
+            </div>
+        </div>
+    `;
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+    
+
+    
+        function showNotification(message, type = 'info') {
+            const notificationsContainer = document.getElementById('notifications-container');
+            if (!notificationsContainer) {
+                const container = document.createElement('div');
+                container.id = 'notifications-container';
+                container.className = 'notifications-container';
+                document.body.appendChild(container);
+            }
+        
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+        
+            document.getElementById('notifications-container').appendChild(notification);
+        
+            // Trigger reflow to enable transition
+            notification.offsetHeight;
+        
+            notification.classList.add('show');
+        
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 3000);
+        }
+        function getPlayerColor(playerId) {
+            const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEEAD', '#FF9999'];
+            const hash = Array.from(playerId).reduce((acc, char) => acc + char.charCodeAt(0), 0);
+            return colors[hash % colors.length];
+        }
+    
+        function updatePlayersList(playersData) {
+            const playersList = document.getElementById('players-list');
+            if (playersList) {
+                playersList.innerHTML = playersData.map(p => `
+                    <li class="${p.is_host ? 'host' : ''}">
+                        ${p.name} ${p.id === socket.id ? ' (Ty)' : ''}
+                    </li>
+                `).join('');
+            }
+        }
+    
+        function updateGameStatus(status) {
+            const statusElement = document.getElementById('game-status');
+            if (statusElement) {
+                statusElement.textContent = status === 'lobby' 
+                    ? '🕒 Oczekiwanie na graczy' 
+                    : '🎮 Gra w toku';
+                statusElement.className = `status-${status}`;
+            }
+        }
+    
+        function updateHostControls(isHost) {
+            console.log('Aktualizacja kontrolek hosta. isHost:', isHost);
+            const startBtn = document.getElementById('start-game-btn');
+            if (startBtn) {
+                if (isHost && currentGameState?.status === 'lobby') {
+                    startBtn.style.display = 'block';
+                    startBtn.disabled = false;
+                } else {
+                    startBtn.style.display = 'none';
+                    startBtn.disabled = true;
+                }
+            }
+        }
+    
+        function updateTurnIndicator(currentPlayerId) {
+            console.log("updateTurnIndicator called with currentPlayerId:", currentPlayerId);
+        
+            const indicator = document.getElementById('turn-indicator');
+            const currentTurnInfo = document.getElementById('current-turn-info');
+        
+            if (currentGameState && currentGameState.players) {
+                const currentPlayer = currentGameState.players.find(p => p.id === currentPlayerId);
+        
+                if (currentPlayer) {
+                    if (currentPlayerId === socket.id) {
+                        if (indicator) {
+                            indicator.style.display = 'block';
+                            indicator.innerHTML = '🎲 Twoja tura! Kliknij przycisk poniżej';
+                        }
+                    } else {
+                        if (indicator) {
+                            indicator.style.display = 'none';
+                        }
+                    }
+        
+                    if (currentTurnInfo) {
+                        currentTurnInfo.textContent = `Aktualna tura: ${currentPlayer.name}`;
+                        currentTurnInfo.style.display = 'block';
+                    }
+                } else {
+                    if (indicator) indicator.style.display = 'none';
+                    if (currentTurnInfo) currentTurnInfo.style.display = 'none';
+                }
+            } else {
+                if (indicator) indicator.style.display = 'none';
+                if (currentTurnInfo) currentTurnInfo.style.display = 'none';
+            }
+        
+            updateControlButtons(currentPlayerId === socket.id);
+            canPerformAction = (currentPlayerId === socket.id);
+        }
+        
+        function updateControlButtons(isCurrentPlayerTurn) {
+            const diceButton = document.querySelector('.dice-button');
+            const endTurnButton = document.querySelector('.end-turn-button');
+        
+            if (diceButton) {
+                diceButton.disabled = !isCurrentPlayerTurn;
+                diceButton.style.opacity = isCurrentPlayerTurn ? '1' : '0.5';
+            }
+        
+
+        }
+
+        function closeModal() {
+            const modal = document.querySelector('.modal-overlay');
+            if (modal) modal.remove();
+        }
+    
+        function buyItem(itemName) {
+            console.log("Próba zakupu przedmiotu:", itemName);  // Dodajemy log
+            socket.emit('player_action', { 
+                type: 'field_action',
+                action_type: 'buy_item',
+                item_name: itemName 
+            });
+            closeModal();
+        }
+    
+
+        function rollDice() {
+            console.log('Próba wykonania ruchu, stan gry:', currentGameState?.status);
+            if (currentGameState?.status === 'in_progress') {
+                socket.emit('player_action', { type: 'roll_dice' });
+            } else {
+                console.log('Nie można wykonać ruchu - gra nie jest w toku');
+            }
+        }
+    
+        function startGame() {
+            console.log('Próba rozpoczęcia gry. isHost:', isHost);
+            if (isHost) {
+                socket.emit('start_game');
+            } else {
+                console.log('Nie jesteś hostem!');
+                showNotification('Tylko host może rozpocząć grę!', true);
+            }
+        }
+        
+
+  
+        
+        function endTurn() {
+            socket.emit('player_action', { type: 'end_turn' });
+        }
+
+        function highlightPossibleMoves(positions) {
+            const fields = document.querySelectorAll('.field');
+            fields.forEach((field, index) => {
+                if (positions.includes(index)) {
+                    field.classList.add('possible-move');
+                } else {
+                    field.classList.remove('possible-move');
+                }
+            });
+        }
+    
+        function movePlayer(newPosition) {
+            socket.emit('player_action', { type: 'move', new_position: newPosition });
+            clearPossibleMoves();
+        }
+    
+        function clearPossibleMoves() {
+            possibleMoves = [];
+            const fields = document.querySelectorAll('.field');
+            fields.forEach(field => {
+                field.classList.remove('possible-move');
+            });
+        }
+        // Socket.io event handlers
+        socket.on('connect', () => {
+            const playerName = localStorage.getItem('playerName');
+            const playerAvatar = localStorage.getItem('playerAvatar');
+            if (playerName && playerAvatar) {
+                socket.emit('join_game', {
+                    game_code: gameCode,
+                    name: playerName,
+                    avatar: playerAvatar
+                });
+            }
+        });
+    
+        socket.on('room_state', data => {
+            console.log('Otrzymano stan pokoju:', data);
+            currentGameState = data;
+            isHost = data.is_host;
+            updateBoard(data.board);
+            updatePlayers(data.players);
+            updateGameStatus(data.status);
+            updateHostControls(data.is_host);
+            updateTurnIndicator(null);
+        });
+    
+        socket.on('players_update', data => {
+            console.log('Aktualizacja graczy:', data);
+            updatePlayersList(data.players);
+            isHost = data.players.some(p => p.id === socket.id && p.is_host);
+            updateHostControls(isHost);
+        });
+    
+
+        socket.on('game_update', data => {
+            currentGameState = { ...currentGameState, ...data };
+            const currentPlayer = data.players.find(p => p.id === socket.id);
+            if (currentPlayer) {
+                currentPlayerPosition = currentPlayer.position;
+                canPerformAction = (data.current_player === socket.id && data.can_perform_action);
+            }
+            updatePlayers(data.players);
+            updateBoard(data.board);
+            updateTurnIndicator(data.current_player);
+            if (data.effect) showNotification(data.effect, 'info');
+        
+
+        });
+
+        socket.on('game_started', data => {
+            console.log('Gra rozpoczęta:', data);
+            currentGameState = data;
+            updateBoard(data.board);
+            updatePlayers(data.players);
+            updateGameStatus('in_progress');
+            updateTurnIndicator(data.current_player);
+        
+            const startBtn = document.getElementById('start-game-btn');
+            if (startBtn) {
+                startBtn.style.display = 'none';
+            }
+        
+            const diceBtn = document.querySelector('.dice-button');
+            if (diceBtn) {
+                diceBtn.style.display = 'block';
+            }
+        
+            showNotification('Gra rozpoczęta!', 'success');
+        });
+    
+        socket.on('error', data => {
+            console.error("Błąd:", data);
+            showNotification(data.message, true);
+        });
+    
+        socket.on('item_list', data => {
+            console.log("Otrzymano listę przedmiotów:", data);  // Dodajemy log
+            if (data && data.items) {
+                showShopItems(data.items);
+            } else {
+                console.error("Nieprawidłowe dane przedmiotów:", data);
+            }
+        });
+    
+
+        socket.on('choose_move', data => {
+            possibleMoves = data.possible_positions;
+            showNotification(`Wyrzuciłeś ${data.steps}. Wybierz pole, na które chcesz się ruszyć.`);
+            highlightPossibleMoves(possibleMoves);
+        });
+    
+        // Inicjalizacja
+        document.addEventListener('DOMContentLoaded', () => {
+            // Dodatkowa inicjalizacja jeśli potrzebna
+        });
+    </script>
+</body>
+</html>

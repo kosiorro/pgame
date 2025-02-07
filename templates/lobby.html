@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lobby - Sejmowe Rozgrywki</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --success-color: #2ecc71;
+            --warning-color: #f1c40f;
+            --background-color: #ecf0f1;
+            --card-background: #ffffff;
+            --text-color: #2c3e50;
+            --border-radius: 12px;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
+            color: var(--text-color);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: var(--card-background);
+            border-radius: var(--border-radius);
+            box-shadow: var(--shadow);
+            padding: 30px;
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: var(--primary-color);
+        }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            font-size: 16px;
+        }
+
+        button {
+            background: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: var(--border-radius);
+            cursor: pointer;
+            font-size: 16px;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background: #2980b9;
+        }
+
+        .game-list {
+            margin-top: 30px;
+        }
+
+        .game-item {
+            background: #f8f9fa;
+            border-radius: var(--border-radius);
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .game-item:hover {
+            background: #e9ecef;
+        }
+
+        .game-code {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        .player-count {
+            color: var(--text-secondary);
+        }
+
+        .join-btn {
+            background: var(--success-color);
+            padding: 8px 15px;
+            font-size: 14px;
+        }
+
+        .join-btn:hover {
+            background: #27ae60;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            input[type="text"], button {
+                font-size: 14px;
+            }
+        }
+
+        .avatar-selection {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+        .avatar-option {
+            width: 50px;
+            height: 50px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            border-radius: 50%;
+            transition: all 0.3s ease;
+        }
+        .avatar-option.selected {
+            border-color: var(--secondary-color);
+            transform: scale(1.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏛️ Sejmowe Rozgrywki - Lobby</h1>
+        <div class="form-group">
+            <label for="player-name">Twoje imię:</label>
+            <input type="text" id="player-name" placeholder="Wpisz swoje imię">
+        </div>
+        <div class="form-group">
+            <label for="player-avatar">Wybierz awatar:</label>
+            <div class="avatar-selection">
+                <img src="/static/images/av1.png" alt="Avatar 1" data-avatar="1" class="avatar-option">
+                <img src="/static/images/av2.png" alt="Avatar 2" data-avatar="2" class="avatar-option">
+                <img src="/static/images/av3.png" alt="Avatar 3" data-avatar="3" class="avatar-option">
+                <img src="/static/images/av4.png" alt="Avatar 4" data-avatar="4" class="avatar-option">
+
+            </div>
+        </div>
+        <div class="form-group">
+            <label for="game-code">Kod gry:</label>
+            <input type="text" id="game-code" placeholder="Wpisz kod gry lub zostaw puste, aby utworzyć nową">
+        </div>
+        <button onclick="joinOrCreateGame()">Dołącz / Utwórz grę</button>
+
+        <div class="game-list">
+            <h2>Dostępne gry:</h2>
+            <div id="games-container"></div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            socket.emit('get_games_list');
+        });
+
+        function joinOrCreateGame() {
+            const playerName = document.getElementById('player-name').value.trim();
+            const gameCode = document.getElementById('game-code').value.trim().toUpperCase();
+
+            if (!playerName) {
+                alert('Proszę wpisać swoje imię!');
+                return;
+            }
+
+            localStorage.setItem('playerName', playerName);
+
+            if (gameCode) {
+                window.location.href = `/game/${gameCode}`;
+            } else {
+                socket.emit('create_game', { name: playerName });
+            }
+        }
+
+        socket.on('game_created', data => {
+            window.location.href = `/game/${data.game_code}`;
+        });
+
+        socket.on('error', data => {
+            alert(data.message);
+        });
+
+        socket.on('games_list', games => {
+            console.log('Received games list:', games);
+            const gamesContainer = document.getElementById('games-container');
+            gamesContainer.innerHTML = '';
+
+            if (games.length === 0) {
+                gamesContainer.innerHTML = '<p>Brak dostępnych gier.</p>';
+                return;
+            }
+
+            games.forEach(game => {
+                const gameElement = document.createElement('div');
+                gameElement.className = 'game-item';
+                gameElement.innerHTML = `
+                    <div>
+                        <span class="game-code">${game.code}</span>
+                        <span class="player-count">(${game.players} graczy)</span>
+                    </div>
+                    <button class="join-btn" onclick="joinGame('${game.code}')">Dołącz</button>
+                `;
+                gamesContainer.appendChild(gameElement);
+            });
+        });
+
+        let selectedAvatar = null;
+
+        document.querySelectorAll('.avatar-option').forEach(avatar => {
+            avatar.addEventListener('click', () => {
+                document.querySelectorAll('.avatar-option').forEach(a => a.classList.remove('selected'));
+                avatar.classList.add('selected');
+                selectedAvatar = avatar.dataset.avatar;
+            });
+        });
+    
+        function joinOrCreateGame() {
+            const playerName = document.getElementById('player-name').value.trim();
+            const gameCode = document.getElementById('game-code').value.trim().toUpperCase();
+    
+            if (!playerName) {
+                alert('Proszę wpisać swoje imię!');
+                return;
+            }
+    
+            if (!selectedAvatar) {
+                alert('Proszę wybrać awatar!');
+                return;
+            }
+    
+            localStorage.setItem('playerName', playerName);
+            localStorage.setItem('playerAvatar', selectedAvatar);
+    
+            if (gameCode) {
+                window.location.href = `/game/${gameCode}`;
+            } else {
+                socket.emit('create_game', { name: playerName, avatar: selectedAvatar });
+            }
+        }
+
+        function joinGame(gameCode) {
+            const playerName = document.getElementById('player-name').value.trim();
+            if (!playerName) {
+                alert('Proszę wpisać swoje imię przed dołączeniem do gry!');
+                return;
+            }
+            localStorage.setItem('playerName', playerName);
+            window.location.href = `/game/${gameCode}`;
+        }
+
+        // Zapytaj o listę gier przy załadowaniu strony
+        socket.emit('get_games_list');
+    </script>
+</body>
+</html> 
